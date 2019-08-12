@@ -28,6 +28,8 @@
 #include "colors.h"
 
 using namespace std;
+double TDC_GLOBSHIFT[600] = {0.};
+double FADC_GLOBSHIFT[600] = {0.};
 double parA_L[600] = {0.};		// loaded
 double parB_L[600] = {0.};		// loaded
 double parA_R[600] = {0.};		// loaded
@@ -45,6 +47,7 @@ double globPos[600][3] = {0.};
 double BARLENGTHS[]  = {163.7,201.9,51.2,51.2,201.9};
 
 double getTriggerPhase( long timeStamp );
+void LoadGlobalShift();
 void LoadTimeWalk();
 void LoadLROffsets();
 void LoadPaddleOffsets();
@@ -57,17 +60,21 @@ int main(int argc, char** argv) {
 
 	// check number of arguments
 	if( argc < 4 ){
-		cerr << BOLD(FRED("Incorrect number of arguments. Instead use:\n\t./psMomentum [outputFile] [byHand (0,1)] [intputFiles]\n"));
+		cerr << BOLD(FRED("Incorrect number of arguments. Instead use:\n\t./hipo2root [outputFile] [byHand (0,1)] [intputFiles]\n\n"));
 		return -1;
 	}
+	cout << BOLD(FYEL("Loading global bar shifts...\n"));
+	LoadGlobalShift();
+	cout << BOLD(FGRN("...Done!\n"));
+
 	bool doByHand = (atoi(argv[2]) == 1 ? true : false );
 	if( doByHand ){
 		// Load calibration constants from include DIR:
 		cout << BOLD(FYEL("Doing byHand -- Loading constants...\n"));
-		//LoadTimeWalk();
+		LoadTimeWalk();
 		LoadLROffsets();
-		//LoadPaddleOffsets();
-		//LoadLayerOffsets();
+		LoadPaddleOffsets();
+		LoadLayerOffsets();
 		LoadVelocityMap();
 		LoadAttenuation();
 		CreateGeo();
@@ -95,10 +102,10 @@ int main(int argc, char** argv) {
 	double meantimeFadc, meantimeTdc;
 	double difftimeFadc, difftimeTdc;
 	double x,y,z;
-	double dL, ToF;
-	double beta, pN_mag, theta_n, phi_n;
-	double En, pN_cosTheta, phi_en;
-	double CosTheta_qn, Xp, Wp, As, theta_qn;
+	double dL, theta_n, phi_n, ToF;
+	double beta, p_n, phi_nq, theta_nq;
+	double E_n, phi_en, CosTheta_nq;
+	double Xp, Wp, As;
 	// Raw BAND variables 
 	int nADC, nTDC;
 	double phaseCorr;
@@ -112,11 +119,32 @@ int main(int argc, char** argv) {
 	double byHand_x, byHand_y, byHand_z;
 	double byHand_dL;
 	// CLAS variables
-	double theta_e, phi_e;
-	double theta_q, phi_q;
-	double Q2, nu, xB, W2, q;
+	double p_e, theta_e, phi_e;
+	double q, theta_q, phi_q;
+	double Q2, nu, xB, W2, EoP;
 	double start_time;
+	int sector_e;
+	double vrt_x_e, vrt_y_e, vrt_z_e, t_e, beta_e;
 
+	// Branches for CLAS
+	outTree->Branch("p_e",			&p_e		,	"p_e/D");
+	outTree->Branch("theta_e",		&theta_e	,	"theta_e/D");
+	outTree->Branch("phi_e",		&phi_e		,	"phi_e/D");
+	outTree->Branch("q",			&q		,	"q/D");
+	outTree->Branch("theta_q",		&theta_q	,	"theta_q/D");
+	outTree->Branch("phi_q",		&phi_q		,	"phi_q/D");
+	outTree->Branch("Q2",			&Q2		,	"Q2/D");
+	outTree->Branch("nu",			&nu		,	"nu/D");
+	outTree->Branch("xB",			&xB		,	"xB/D");
+	outTree->Branch("W2",			&W2		,	"W2/D");
+	outTree->Branch("EoP",			&EoP		,	"EoP/D");
+	outTree->Branch("STTime",		&start_time	,	"STTime/D");
+	outTree->Branch("sector_e",		&sector_e	,	"sector_e/I");
+	outTree->Branch("vrt_x_e",		&vrt_x_e	,	"vrt_x_e/D");
+	outTree->Branch("vrt_y_e",		&vrt_y_e	,	"vrt_y_e/D");
+	outTree->Branch("vrt_z_e",		&vrt_z_e	,	"vrt_z_e/D");
+	outTree->Branch("t_e",			&t_e		,	"t_e/D");
+	outTree->Branch("beta_e",		&beta_e		,	"beta_e/D");
 	// Branches for BAND
 	outTree->Branch("nHits",		&nHits		,	"nHits/I");
 	outTree->Branch("sector",		&sector		,	"sector/I");
@@ -132,19 +160,19 @@ int main(int argc, char** argv) {
 	outTree->Branch("y",			&y		,	"y/D");
 	outTree->Branch("z",			&z		,	"z/D");
 	outTree->Branch("dL",			&dL		,	"dL/D");
-	outTree->Branch("ToF",			&ToF		,	"ToF/D");
-	outTree->Branch("beta",			&beta		,	"beta/D");
-	outTree->Branch("pN_mag",		&pN_mag		,	"pN_mag/D");
 	outTree->Branch("theta_n",		&theta_n	,	"theta_n/D");
 	outTree->Branch("phi_n",		&phi_n		,	"phi_n/D");
-	outTree->Branch("En",			&En		,	"En/D");
-	outTree->Branch("pN_cosTheta",		&pN_cosTheta	,	"pN_cosTheta/D");
+	outTree->Branch("ToF",			&ToF		,	"ToF/D");
+	outTree->Branch("beta",			&beta		,	"beta/D");
+	outTree->Branch("p_n",			&p_n		,	"p_n/D");
+	outTree->Branch("phi_nq",		&phi_nq		,	"phi_nq/D");
+	outTree->Branch("theta_nq",		&theta_nq	,	"theta_nq/D");
+	outTree->Branch("E_n",			&E_n		,	"E_n/D");
 	outTree->Branch("phi_en",		&phi_en		,	"phi_en/D");
-	outTree->Branch("CosTheta_qn",		&CosTheta_qn	,	"CosTheta_qn/D");
+	outTree->Branch("CosTheta_nq",		&CosTheta_nq	,	"CosTheta_nq/D");
 	outTree->Branch("Xp",			&Xp		,	"Xp/D");
 	outTree->Branch("Wp",			&Wp		,	"Wp/D");
 	outTree->Branch("As",			&As		,	"As/D");
-	outTree->Branch("theta_qn",		&theta_qn	,	"theta_qn/D");
 	// Raw branches for BAND
 	outTree->Branch("nADC",			&nADC		,	"nADC/I");
 	outTree->Branch("nTDC",			&nTDC		,	"nTDC/I");
@@ -166,18 +194,9 @@ int main(int argc, char** argv) {
 	outTree->Branch("byHand_y",		&byHand_y	,	"byHand_y/D");
 	outTree->Branch("byHand_z",		&byHand_z	,	"byHand_z/D");
 	outTree->Branch("byHand_dL",		&byHand_dL	,	"byHand_dL/D");
-	// Branches for CLAS
-	outTree->Branch("theta_e",		&theta_e	,	"theta_e/D");
-	outTree->Branch("phi_e",		&phi_e		,	"phi_e/D");
-	outTree->Branch("theta_q",		&theta_q	,	"theta_q/D");
-	outTree->Branch("phi_q",		&phi_q		,	"phi_q/D");
-	outTree->Branch("Q2",			&Q2		,	"Q2/D");
-	outTree->Branch("nu",			&nu		,	"nu/D");
-	outTree->Branch("xB",			&xB		,	"xB/D");
-	outTree->Branch("W2",			&W2		,	"W2/D");
-	outTree->Branch("q",			&q		,	"q/D");
-	outTree->Branch("STTime",		&start_time	,	"STTime/D");
 
+	// Setup initial vector for beam
+	TVector3 beamVec(0,0,Ebeam);
 
 	// Load input file
 	for( int i = 3 ; i < argc ; i++ ){
@@ -195,19 +214,21 @@ int main(int argc, char** argv) {
 		hipo::bank BAND_TDC  ("BAND::tdc"  ,reader);
 		//hipo::bank RUN_config("RUN::config",reader);
 
-		// Setup initial vector for beam
-		TVector3 e0(0,0,Ebeam);
-		TLorentzVector e0_4(e0,Ebeam);
-
 		// Loop over events in hipo fil
 		int event_counter = 0;
 		while(reader.next()==true){
+			// Clear electron quantities:
+			p_e,theta_e,phi_e,q,theta_q,phi_q,Q2,nu,xB,W2,EoP		= 0.;
+			start_time, sector_e, vrt_x_e, vrt_y_e, vrt_z_e, t_e		= 0.;
+			beta_e								= 0.;
+	
+			// Clear BAND REC quantities:
 			nHits,sector,layer,component,adcLcorr,adcRcorr			= 0.;
 			meantimeFadc,meantimeTdc,difftimeFadc,difftimeTdc 		= 0.;
-			x,y,z,dL,ToF,beta,pN_mag,theta_n,phi_n,En,pN_cosTheta 		= 0.;
-			phi_en,CosTheta_qn,Xp,Wp,As,theta_qn 				= 0.;
-			theta_e,phi_e,theta_q,phi_q,Q2,nu,xB,W2,q 			= 0.;
+			x,y,z,dL,theta_n,phi_n,ToF,beta,p_n,phi_nq,theta_nq		= 0.;
+			E_n,phi_en,CosTheta_nq,Xp,Wp,As					= 0.;
 
+			// Clear BAND RAW quantities:
 			nADC, nTDC 							= 0.;
 			phaseCorr							= 0.;
 			adcLraw, adcRraw, tTdcLraw, tTdcRraw, tFadcLraw, tFadcRraw 	= 0.;
@@ -223,55 +244,63 @@ int main(int argc, char** argv) {
 			//event.show();
 			//scintillator.show();	
 
-			// Particle bank
+			// Grab the electron information:
 			int pid0		= particles.getPid    (0);       // electron candidate id assigned by clas
-			TVector3 eP_vertex	= particles.getV3v    (0);       // electron candidate vertex vector
-			TVector3 eP 		= particles.getV3P    (0);       // electron candidate momentum vector
-			float chr0     		= particles.getCharge (0);       // electron candidate charge
-			float eBeta    		= particles.getBeta   (0);       // electron candidate beta = v/c
-			float chi2pid  		= particles.getChi2pid(0);       // electron candidate goodness of pid fit
+			TVector3 eVert		= particles.getV3v    (0);       // electron candidate vertex vector
+			TVector3 eVec 		= particles.getV3P    (0);       // electron candidate momentum vector
+			double chr0     	= particles.getCharge (0);       // electron candidate charge
+			beta_e		   	= particles.getBeta   (0);       // electron candidate beta = v/c
+			double chi2pid  	= particles.getChi2pid(0);       // electron candidate goodness of pid fit
 			int eStatus    		= particles.getStatus (0);       // electron candidate status
 			// Calorimeter bank
-			float Epcal = calo.getPcalE(0); 
-			float Ee    = calo.getTotE (0);
-			float lU    = calo.getLU   (0);	// electron candidate distance on U-side [cm?]
-			float lV    = calo.getLV   (0);	// electron candidate distance on V-side [cm?]
-			float lW    = calo.getLW   (0);	// electron candidate distance on W-side [cm?]
+			double Epcal 		= calo.getPcalE(0); 
+			double Ee    		= calo.getTotE (0);
+			//float lU    = calo.getLU   (0);	// electron candidate distance on U-side [cm?]
+			//float lV    = calo.getLV   (0);	// electron candidate distance on V-side [cm?]
+			//float lW    = calo.getLW   (0);	// electron candidate distance on W-side [cm?]
 
 			// Event vertex time calibrated from FTOF
-			double t_vtx   = event.getSTTime(0);
-			double t_e     = scintillator.getTime(0);
-			double tof_e  = t_e - t_vtx;		// electron candidate time-of-flight [ns]
+			double t_vtx   		= event.getSTTime(0);
+			double tof_e  		= t_e - t_vtx;		// electron candidate time-of-flight [ns]
+
+			// Define the q vector
+			TVector3 qVec 	= beamVec - eVec;
 
 			// Only keep events for which the first particle is an electron
 			if(             (pid0!=11              )||
-					(chr0!=-1              )||
-					(chi2pid>=cut_chi2pid  )||
-					(eP.Mag()<=cut_ep      )||
-					(eP.Mag()>=Ebeam       )||
-					(eP_vertex.Z()>cut_max_vz  )||
-					(eP_vertex.Z()<cut_min_vz  )||
-					(lU<cut_uvw            )||
-					(lV<cut_uvw            )||
-					(lW<cut_uvw            )||
-					(Epcal<cut_Epcal       )||
+					(chr0!=-1              ) 
+					//(chi2pid>=cut_chi2pid  )||
+					//(eP.Mag()<=cut_ep      )||
+					//(eP.Mag()>=Ebeam       )||
+					//(eP_vertex.Z()>cut_max_vz  )||
+					//(eP_vertex.Z()<cut_min_vz  )||
+					//(lU<cut_uvw            )||
+					//(lV<cut_uvw            )||
+					//(lW<cut_uvw            )||
+					//(Epcal<cut_Epcal       )||
 					//(TMath::Sqrt(W2)<=cut_W)||
-					(tof_e<cut_tof_e       )
+					//(tof_e<cut_tof_e       )
 			  ) continue;
 
 
-			// Calculate kinematic variables
-			theta_e 	= eP.Theta();
-			Q2 		= 4. * e0_4.Energy() * eP.Mag() * pow( TMath::Sin(theta_e/2.) , 2 );	// momentum transfer
-			nu 		= e0_4.Energy() - eP.Mag();						// energy transfer
-			xB		= Q2 / (2.*mP*nu);
-			q		= sqrt( Q2 + pow(nu,2) ); 						// 3 vector q-magnitude
-			phi_q		= eP.Phi() + M_PI;	  						// q vector phi angle
-			W2     		= mP*mP - Q2 + 2*nu*mP;						// invariant jet mass based on e kinematics
-			if (phi_q > M_PI) phi_q -= 2.*M_PI;
-			theta_q 	= acos(  ( e0_4.Energy() - eP.Mag() * TMath::Cos(theta_e) ) / q );	// q vector theta angle
-			phi_e		= eP.Phi();
-
+			// Calculate electron kinematic variables
+			p_e 		= eVec.Mag();
+			theta_e 	= eVec.Theta();
+			phi_e		= eVec.Phi();
+			q		= qVec.Mag();
+			theta_q		= qVec.Theta();
+			phi_q		= qVec.Phi();
+			nu 		= Ebeam - sqrt( p_e*p_e + mE*mE );
+			Q2 		= q*q - nu*nu;
+			xB 		= Q2 / (2.*mP*nu);
+			W2     		= mP*mP - Q2 + 2*nu*mP;	
+			EoP		= Ee / p_e;
+			start_time 	= t_vtx;					
+			sector_e	= calo.getSector(0);	// technically this is a bit wrong, but it should all have same sector...
+			vrt_x_e		= eVert.X();
+			vrt_y_e		= eVert.Y();
+			vrt_z_e		= eVert.Z();
+			t_e     	= scintillator.getTime(0);
 
 			// Looking in BAND
 			nHits = band_hits.getSize();
@@ -295,60 +324,50 @@ int main(int argc, char** argv) {
 					y			= band_hits.getY		(hit);
 					z			= band_hits.getZ		(hit);
 
-					//double cutMeVee = 5.;
-					//if( adcLcorr < cutMeVee*2000. || adcRcorr < cutMeVee*2000. ) continue;
-
-					//if( sector == 3 || sector == 4 ) continue; 	// Don't want short bars for now because they have a systematic
-					// shift from long bars due to length of bar
-					start_time = t_vtx;					
-					ToF = meantimeFadc-t_vtx;	// [ns]
+					// Form path length and angles
 					dL  = sqrt( x*x + y*y + z*z );	// [cm]
-
-					// Real ToF = (measured ToF - gamma peak position) + (where gamma peak should really be)
-					ToF = ToF - 4.99481e+01 + dL/cAir;
-
+					theta_n = acos( z/dL );
+					phi_n = atan2( y, x );
+				
+					// Calculate ToF based on meantimeFadc - STTime - global offset
+					ToF = meantimeFadc - t_vtx - FADC_GLOBSHIFT[barKey];	// [ns]
 					// Calculate beta
 					beta = dL/(cAir*ToF);	
+					// Calculate momentum
+					p_n = 1./sqrt( 1./(beta*beta) - 1.) * mN; 	// [GeV]
 
-					// Build neutron 4 vector
-					pN_mag = 1./sqrt( 1./(beta*beta) - 1.) * mN; 	// [GeV]
-					En = sqrt( pN_mag*pN_mag + mN*mN );		// [GeV]
+					// Create 3 vector
+					TVector3 nVec; nVec.SetMagThetaPhi(p_n,theta_n,phi_n);
+	
+					// Solve for theta_nq, phi_nq
+					TVector3 norm_scatter = qVec.Cross( beamVec );
+        				norm_scatter    = norm_scatter.Unit();
+					TVector3 norm_reaction = qVec.Cross( nVec );
+        				norm_reaction   = norm_reaction.Unit();
+					phi_nq   = norm_scatter.Angle( norm_reaction );
+        				theta_nq = nVec.Angle( qVec );
+					TVector3 direction = norm_scatter.Cross(norm_reaction);
+					if( direction.Z() > 0 ){ // this means the phi_rq should be between 0 and pi
+					}
+					else if( direction.Z() < 0 ){ // this means the phi_rq should be between -pi and 0
+						phi_nq *= (-1);
+        				}
 
-					pN_cosTheta = z/dL;
-					theta_n = acos( pN_cosTheta );
-					phi_n = atan2( y , x );
-
-					TVector3 pN( pN_mag*sin(theta_n)*sin(phi_n) , pN_mag*sin(theta_n)*cos(phi_n) , pN_mag*cos(theta_n) );
-					TLorentzVector pN_4( pN , En );
+					// Solve for last variables:
+					E_n = sqrt( p_n*p_n + mN*mN );		// [GeV]
 
 					// Now look at electron-neutron quantities to build the physics
 					phi_en = phi_n - phi_e;
 					if (phi_en < -M_PI) phi_en += 2.*M_PI;
 					if (phi_en >  M_PI) phi_en -= 2.*M_PI;
-					CosTheta_qn = cos(theta_n)*cos(theta_q) - sin(theta_n)*sin(theta_q)*cos(phi_en);
-					theta_qn = acos(CosTheta_qn);
-					Xp = Q2/(2.*( nu*(mD-En) + pN_mag*q*CosTheta_qn));
-					Wp = sqrt((mD*mD) - Q2 + (mP*mP) + 2.*mD*(nu-En) -2.* nu * En + 2.*q*pN_mag*CosTheta_qn);
-					As = (En - pN_mag*CosTheta_qn)/mN;
-
-
-
-					//if (Q2 < 2)       				continue;
-					//if (acos(CosTheta_qn)*180./M_PI < 110.)		continue;
-					//if (Xp > 0.8)      				continue;
-					//if (Wp < 1.8)     	 			continue;
-
-					//if( beta > 1 ) 					continue;
-					//if( ToF > 100 && ToF < 250 )			continue;
-					//if( ToF < 0 )	 				continue; 	// these are below our photon peak, so ignore
-					//if( ToF < 3*1.19734e+00) 			continue; 	// this is our photon peak, so ignore
-					//if( pN_mag < 0.2)				continue;
-					//if (pN_mag < 0.25) 				continue;
-					//if (pN_mag > 0.6)  	    			continue;
+					CosTheta_nq = cos(theta_nq);
+					Xp = Q2/(2.*( nu*(mD-E_n) + p_n*q*CosTheta_nq));
+					Wp = sqrt((mD*mD) - Q2 + (mP*mP) + 2.*mD*(nu-E_n) -2.* nu * E_n + 2.*q*p_n*CosTheta_nq);
+					As = (E_n - p_n*CosTheta_nq)/mN;
 
 
 				}// end loop over band hits in an event
-
+				/*
 				// Now check the corresponding ADC banks -- we should only have 2 ADCs, 2 TDCs:
 				if( doByHand ){
 					nADC = BAND_ADC.getSize();
@@ -450,6 +469,7 @@ int main(int argc, char** argv) {
 						}
 					} // end if for raw ADC==2 and TDC =2
 				}// end if doByHand
+				*/
 
 			} // end if for nHits == 1 for BAND
 
@@ -478,6 +498,39 @@ double getTriggerPhase( long timeStamp ) {
 		tPh = (double)(Period *( (timeStamp + Phase) % Cycles ));
 
 	return tPh;
+}
+
+void LoadGlobalShift(){
+	ifstream f;
+	int sector, layer, component, barId;
+	double pol0, height, mean, sig, temp;
+	
+	f.open("../include/global_offset_fadc.txt");
+	while(!f.eof()){
+		f >> sector;
+		f >> layer;
+		f >> component;
+		barId = 100*sector + 10*layer + component;
+		f >> pol0;
+		f >> height;
+		f >> mean;
+		f >> sig;
+		FADC_GLOBSHIFT[barId] = mean;
+		f >> temp;
+		f >> temp;
+	}
+	//f.open("../include/global_offset_tdc.txt");
+	//while(!f.eof()){
+	//	f >> sector;
+	//	f >> layer;
+	//	f >> component;
+	//	barId = 100*sector + 10*layer + component;
+	//	f >> pol0;
+	//	f >> height;
+	//	f >> mean;
+	//	f >> sig;
+	//	TDC_GLOBSHIFT[barId] = mean;
+	//}
 }
 
 void LoadTimeWalk(){
