@@ -1,0 +1,6 @@
+HOW TO COMPILE PROJECT:
+
+(1) Ensure you have lz4 installed and in your PATH and LD_LIBRARY_PATH
+	(on the ifarm, this is /group/clas12/packages/lz4/lib )
+(2) Make a build directory and run cmake (or ccmake) from it, pointing to the source directory
+
