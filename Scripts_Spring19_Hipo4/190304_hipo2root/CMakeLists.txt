@@ -3,4 +3,4 @@ include_directories(${INCLUDES})
 
 
 add_executable(hipo2root hipo2root.cpp ${HEADERS} )
-target_link_libraries(hipo2root ${ROOT_LIBRARIES} Hipo4 Banks4 )
+target_link_libraries(hipo2root ${ROOT_LIBRARIES} Hipo4 Banks4 ${LZ_LIBRARY})

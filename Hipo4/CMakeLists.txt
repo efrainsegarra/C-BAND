@@ -1,11 +1,12 @@
 project(Hipo4)
 
-set(INCLUDES ${ROOT_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include )
+set(INCLUDES ${ROOT_INCLUDE_DIR} ${LZ_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include )
 include_directories(${INCLUDES})
 
 add_library(Hipo4 
 		SHARED 
 		bank.cpp dictionary.cpp event.cpp reader.cpp record.cpp recordbuilder.cpp utils.cpp wrapper.cpp writer.cpp )
+target_link_libraries(Hipo4 ${LZ_LIBRARY})
 install(TARGETS Hipo4 
 		LIBRARY 
 		DESTINATION "${CMAKE_SOURCE_DIR}/lib" )
