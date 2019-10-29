@@ -7,10 +7,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules")
 find_package(ROOT REQUIRED)
 find_package(LZ4 REQUIRED)
-#set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}")
-
-# set globals for use of all packages
-#file( GLOB HEADERS ${CMAKE_SOURCE_DIR}/*.h )
+add_definitions(-D__LZ4__)
 
 # Add directories
 add_subdirectory(Hipo4)

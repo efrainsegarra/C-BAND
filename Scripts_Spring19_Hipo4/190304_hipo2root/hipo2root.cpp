@@ -18,10 +18,6 @@
 #include "reader.h"
 #include "bank.h"
 
-#ifdef __LZ4__
-#include <lz4.h>
-#endif
-
 #include "BParticle.h"
 #include "BCalorimeter.h"
 #include "BScintillator.h"
@@ -65,12 +61,6 @@ double getBeamEnergy( int runNum );
 
 int main(int argc, char** argv) {
 
-      #ifndef __LZ4__
-        printf("\n   >>>>> LZ4 compression is not supported.");
-        printf("\n   >>>>> check if libz4 is installed on your system.");
-        printf("\n   >>>>> recompile the library with liblz4 installed.\n");
-        return 0;
-      #endif
 
 	// check number of arguments
 	if( argc < 4 ){
