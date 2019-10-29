@@ -1,5 +1,7 @@
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
+#include <cmath>
 
 #include "TRint.h"
 #include "TApplication.h"
@@ -14,8 +16,8 @@
 #include "TCanvas.h"
 
 #include "reader.h"
-#include "node.h"
 #include "bank.h"
+
 
 #include "BParticle.h"
 #include "BCalorimeter.h"
@@ -55,6 +57,8 @@ void LoadLayerOffsets();
 void LoadVelocityMap();
 void LoadAttenuation();
 void CreateGeo();
+char* getRunNumber( char* parse );
+double getBeamEnergy( int runNum );
 
 int main(int argc, char** argv) {
 
@@ -63,9 +67,10 @@ int main(int argc, char** argv) {
 		cerr << BOLD(FRED("Incorrect number of arguments. Instead use:\n\t./hipo2root [outputFile] [byHand (0,1)] [intputFiles]\n\n"));
 		return -1;
 	}
-	cout << BOLD(FYEL("Loading global bar shifts...\n"));
+	cout << BOLD(FYEL("Using inputs: ")) << argv[1] << " " << argv[2] << " " << argv[3] << "\n";
+	//cout << BOLD(FYEL("Loading global bar shifts...\n"));
 	//LoadGlobalShift();
-	cout << BOLD(FGRN("...Done!\n"));
+	//cout << BOLD(FGRN("...Done!\n"));
 
 	bool doByHand = (atoi(argv[2]) == 1 ? true : false );
 	if( doByHand ){
@@ -93,6 +98,7 @@ int main(int argc, char** argv) {
 	double cut_tof_e   =    10; //ns
 
 	// Create output tree
+	cout << BOLD(FYEL("Creating output...\n"));
 	TFile * outFile = new TFile(argv[1],"RECREATE");
 	TTree * outTree = new TTree("skim","CLAS and BAND Physics");
 	// BAND variables
@@ -119,7 +125,7 @@ int main(int argc, char** argv) {
 	double byHand_x, byHand_y, byHand_z;
 	double byHand_dL;
 	// CLAS variables
-	double p_e, theta_e, phi_e;
+	double Ebeam, p_e, theta_e, phi_e;
 	double q, theta_q, phi_q;
 	double Q2, nu, xB, W2, EoP;
 	double start_time;
@@ -127,6 +133,7 @@ int main(int argc, char** argv) {
 	double vrt_x_e, vrt_y_e, vrt_z_e, t_e, beta_e, chi2pid_e;
 
 	// Branches for CLAS
+	outTree->Branch("Ebeam",		&Ebeam		,	"Ebeam/D");
 	outTree->Branch("p_e",			&p_e		,	"p_e/D");
 	outTree->Branch("theta_e",		&theta_e	,	"theta_e/D");
 	outTree->Branch("phi_e",		&phi_e		,	"phi_e/D");
@@ -196,30 +203,62 @@ int main(int argc, char** argv) {
 	outTree->Branch("byHand_z",		&byHand_z	,	"byHand_z/D");
 	outTree->Branch("byHand_dL",		&byHand_dL	,	"byHand_dL/D");
 
-	// Setup initial vector for beam
-	TVector3 beamVec(0,0,Ebeam);
-
+	cout << BOLD(FGRN("...Done!\n"));
+	
 	// Load input file
 	for( int i = 3 ; i < argc ; i++ ){
+		int thisRun = atoi(getRunNumber(argv[i]));
+		double fixed_Ebeam = getBeamEnergy(thisRun);
+		// Setup initial vector for beam
+		TVector3 beamVec(0,0,fixed_Ebeam);
+
 		TString inputFile = argv[i];
-		cout << BOLD(FBLU("Now working on file: ")) << inputFile << "\n";
+		cout << BOLD(FBLU("Now working on file: ")) << inputFile << endl;
 		hipo::reader reader;
 		reader.open(inputFile);
+		
+		//Read Dictionary of Hipo File  // new hipo4
+		hipo::dictionary  factory;      // new hipo4
+		reader.readDictionary(factory); // new hipo4
+		//factory.show();               // new hipo4
+
 		// Banks for EMC-SRC physics
-		BEvent        event       ("REC::Event"       ,reader);
-		BParticle     particles   ("REC::Particle"    ,reader);
-		BCalorimeter  calo        ("REC::Calorimeter" ,reader);
-		BScintillator scintillator("REC::Scintillator",reader);
-		BBand         band_hits   ("BAND::hits"       ,reader);
-		hipo::bank BAND_ADC  ("BAND::adc"  ,reader);
-		hipo::bank BAND_TDC  ("BAND::tdc"  ,reader);
-		//hipo::bank RUN_config("RUN::config",reader);
+		BEvent		event		(factory.getSchema("REC::Event"       ));
+		BParticle	particles	(factory.getSchema("REC::Particle"    ));
+		BCalorimeter	calo		(factory.getSchema("REC::Calorimeter" ));
+		BScintillator	scintillator	(factory.getSchema("REC::Scintillator"));
+		BBand		band_hits	(factory.getSchema("BAND::hits"       ));
+		hipo::bank 	BAND_ADC	(factory.getSchema("BAND::adc"));
+		hipo::bank 	BAND_TDC	(factory.getSchema("BAND::tdc"));
+		hipo::bank 	RUN_config	(factory.getSchema("RUN::config"));
+
+		//One also needs a hipo::event object which is called from the reader for each event to get
+		//the information for each bank
+		hipo::event readevent;  // new hipo4
 
 		// Loop over events in hipo fil
-		int event_counter = 0;
+		int event_counter = -1;
 		while(reader.next()==true){
+			event_counter++;
+			//Reader has to load information about event in hipo::event class
+			reader.read(readevent); // new hipo4
+			//if( event_counter == 100000 ) break;
+
+			//Load explicitly all information for each bank for the event
+			readevent.getStructure(event       );   // new hipo4
+			readevent.getStructure(particles   );   // new hipo4
+			readevent.getStructure(calo        );   // new hipo4
+			readevent.getStructure(scintillator);   // new hipo4
+			readevent.getStructure(band_hits   );   // new hipo4
+			readevent.getStructure(BAND_ADC	   );	// new hipo4
+			readevent.getStructure(BAND_TDC	   );	// new hipo4
+			readevent.getStructure(RUN_config  );	// new hipo4
+		
+
+			//Now everything is loaded and can be used as before with HIPO3 files. There is only one difference:
+			//The number of hits in each bank is determined by the function "getRows()" and not by "getSize" as before.
 			// Clear electron quantities:
-			p_e,theta_e,phi_e,q,theta_q,phi_q,Q2,nu,xB,W2,EoP		= 0.;
+			Ebeam,p_e,theta_e,phi_e,q,theta_q,phi_q,Q2,nu,xB,W2,EoP		= 0.;
 			start_time, sector_e, vrt_x_e, vrt_y_e, vrt_z_e, t_e		= 0.;
 			beta_e,chi2pid_e						= 0.;
 	
@@ -237,8 +276,7 @@ int main(int argc, char** argv) {
 			byHand_meantimeTdc, byHand_difftimeFadc, byHand_difftimeTdc	= 0.;
 			byHand_x, byHand_y, byHand_z, byHand_dL				= 0.;
 
-			if(event_counter%1000000==0) cout << BOLD(FBLU("\tevent: ")) << event_counter << endl;
-			event_counter++;
+			if(event_counter%1000000==0) cout << BOLD(FBLU("\t on event: ")) << event_counter << endl;
 
 			// Debugging print option
 			//band_hits.show();
@@ -246,6 +284,7 @@ int main(int argc, char** argv) {
 			//scintillator.show();	
 
 			// Grab the electron information:
+			Ebeam = fixed_Ebeam;
 			int pid0		= particles.getPid    (0);       // electron candidate id assigned by clas
 			TVector3 eVert		= particles.getV3v    (0);       // electron candidate vertex vector
 			TVector3 eVec 		= particles.getV3P    (0);       // electron candidate momentum vector
@@ -272,7 +311,7 @@ int main(int argc, char** argv) {
 					(chr0!=-1              ) 
 					//(chi2pid>=cut_chi2pid  )||
 					//(eP.Mag()<=cut_ep      )||
-					//(eP.Mag()>=Ebeam       )||
+					//(eP.Mag()>=fixed_Ebeam       )||
 					//(eP_vertex.Z()>cut_max_vz  )||
 					//(eP_vertex.Z()<cut_min_vz  )||
 					//(lU<cut_uvw            )||
@@ -291,7 +330,7 @@ int main(int argc, char** argv) {
 			q		= qVec.Mag();
 			theta_q		= qVec.Theta();
 			phi_q		= qVec.Phi();
-			nu 		= Ebeam - sqrt( p_e*p_e + mE*mE );
+			nu 		= fixed_Ebeam - sqrt( p_e*p_e + mE*mE );
 			Q2 		= q*q - nu*nu;
 			xB 		= Q2 / (2.*mP*nu);
 			W2     		= mP*mP - Q2 + 2*nu*mP;	
@@ -304,7 +343,7 @@ int main(int argc, char** argv) {
 			t_e     	= scintillator.getTime(0);
 
 			// Looking in BAND
-			nHits = band_hits.getSize();
+			nHits = band_hits.getRows();
 			if( nHits == 1){
 				for(int hit = 0; hit < nHits; hit++) {
 
@@ -368,15 +407,16 @@ int main(int argc, char** argv) {
 
 
 				}// end loop over band hits in an event
-				/*
+				
+				
 				// Now check the corresponding ADC banks -- we should only have 2 ADCs, 2 TDCs:
 				if( doByHand ){
-					nADC = BAND_ADC.getSize();
-					nTDC = BAND_TDC.getSize();
+					nADC = BAND_ADC.getRows();
+					nTDC = BAND_TDC.getRows();
 					if( nADC == 2 && nTDC == 2){
 						//RUN_config.show();
-						//long timestamp = RUN_config.getLong(4,0);
-						//phaseCorr = getTriggerPhase(timestamp);
+						long timestamp = RUN_config.getLong(4,0);
+						phaseCorr = getTriggerPhase(timestamp);
 						int adc_barKey, tdc_barKey;
 
 						// Get the raw ADC information, uncorrected
@@ -470,23 +510,27 @@ int main(int argc, char** argv) {
 						}
 					} // end if for raw ADC==2 and TDC =2
 				}// end if doByHand
-				*/
-
+				
+	
 			} // end if for nHits == 1 for BAND
 
 			outTree->Fill();
 
 
 		}// end file
+		
+		cout << BOLD(FGRN("\t...done with file\n"));
 	}// end loop over files
+	
 
-
+	cout << BOLD(FGRN("...writing and closing!")) << endl;
 	outFile->cd();
 	outTree->Write();
 	outFile->Close();
 
 	return 0;
 }
+
 
 double getTriggerPhase( long timeStamp ) {
 	double tPh = 0.;
@@ -776,4 +820,33 @@ void CreateGeo(){
 
 	}
 	return;
+}
+char* getRunNumber( char* parse ){
+        char * parse_copy = (char*) malloc( strlen(parse)+1 );
+        char * parsed;
+
+        strcpy( parse_copy, parse );
+        char * loop = strtok( parse_copy, ".");
+        while(loop){
+                char* equals_sign = strchr(loop, '_');
+                if (equals_sign){
+                        *equals_sign = 0;
+                        equals_sign++;
+                        parsed = (char*)malloc(strlen(equals_sign) + 1);
+                        strcpy(parsed, equals_sign);
+                }
+                loop = strtok(NULL, ".");
+        }
+        free(parse_copy);
+        return parsed;
+}
+
+double getBeamEnergy( int runNum ){
+        double thisEn = 0;
+
+        if( runNum <= 6399 ) thisEn = 10.6;
+        else{ thisEn = 10.2; }
+        if( runNum == 6523 || runNum == 6524 || runNum == 6525 ) thisEn = 10.;
+
+        return thisEn;
 }

@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
 
 	hipo::bank BAND_ADC  (factory.getSchema("BAND::adc"  ));	// new hipo4
 	hipo::bank BAND_TDC  (factory.getSchema("BAND::tdc"  ));	// new hipo4
-	hipo::bank RUN_config(factory.getSchema("RUN::config"));	// new hipo4
+	//hipo::bank RUN_config(factory.getSchema("RUN::config"));	// new hipo4
 
 	//One also needs a hipo::event object which is called from the reader for each event to get
         //the information for each bank
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
                 //Load explicitly all information for each bank for the event
                 readevent.getStructure(BAND_ADC   );   // new hipo4
                 readevent.getStructure(BAND_TDC   );   // new hipo4
-                readevent.getStructure(RUN_config );   // new hipo4 
+                //readevent.getStructure(RUN_config );   // new hipo4 
 
                 //Now everything is loaded and can be used as before with HIPO3 files. There is only one difference:
                 //The number of hits in each bank is determined by the function "getRows()" and not by "getSize" as before.
@@ -129,9 +129,9 @@ int main(int argc, char** argv) {
 		// Skip events with less than 200 entries (the laser lights all bars at the same time)
 		if(nADC<200||nTDC<200) continue;
 
-		long timestamp = RUN_config.getLong(4,0);
-		double phaseCorr = getTriggerPhase(timestamp);
-
+		//long timestamp = RUN_config.getLong(4,0);
+		//double phaseCorr = getTriggerPhase(timestamp);
+		double phaseCorr = 0;
 		for(int aIdx = 0 ; aIdx < nADC ; aIdx++){
 
 			int   ADC_sector    = BAND_ADC.getInt  (0,aIdx);

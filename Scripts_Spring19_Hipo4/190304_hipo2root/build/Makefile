@@ -16,14 +16,14 @@ CXXFLAGS  += -std=c++11 -Wall -fPIC $(ROOTCFLAGS)
 LD        := g++
 LDFLAGS   := $(ROOTLDFLAGS)
 
-all: psMomentum
+all: hipo2root
 
-psMomentum: psMomentum.o
-	$(CXX) -o psMomentum $< $(ROOTCFLAGS) $(ROOTLDFLAGS) $(HIPOLIBS) $(LZ4LIBS) $(ROOTLIBS)
+hipo2root: hipo2root.o
+	$(CXX) -o hipo2root $< $(ROOTCFLAGS) $(ROOTLDFLAGS) $(HIPOLIBS) $(LZ4LIBS) $(ROOTLIBS)
 
 clean:
 	@echo 'Removing all build files'
-	@rm -rf *.o psMomentum *~
+	@rm -rf *.o hipo2root *~
 
 %.o: ../%.cpp
 	$(CXX) -c $< -O2 $(ROOTCFLAGS) $(HIPOCFLAGS) $(INCLUDES) $(LZ4INCLUDES)
