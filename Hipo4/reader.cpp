@@ -41,6 +41,7 @@ namespace hipo {
 
     if(inputStream.is_open()==true){
       inputStream.close();
+
     }
 
     inputStream.open(filename, std::ios::binary);
@@ -113,11 +114,11 @@ void  reader::readIndex(){
     printf("*** reader:: trailer record event count : %d\n",inputRecord.getEventCount());
     hipo::event event;
     inputRecord.readHipoEvent(event,0);
-    //   event.show();
+    event.show();
     hipo::structure base;
     event.getStructure(base,32111,1);
-    //base.show();
-
+    base.show();
+    readerEventIndex.clear();
     int rows = base.getSize()/32;
 
     printf(" number of rows = %d\n",rows);
@@ -127,11 +128,25 @@ void  reader::readIndex(){
        int  entries  = base.getIntAt ( rows*12 + i*4);
        long uid1     = base.getLongAt( rows*16 + i*8);
        long uid2     = base.getLongAt( rows*24 + i*8);
-       // printf("record # %4d POSITION = %12lu , LENGTH = %12d , ENTRIES = %6d , UID = %12lu %12lu\n",i,position,length,entries, uid1,uid2);
-       readerEventIndex.addSize(entries);
-       readerEventIndex.addPosition(position);
+       //printf("record # %4d POSITION = %12lu , LENGTH = %12d , ENTRIES = %6d , UID = %12lu %12lu\n",
+          //i,position,length,entries, uid1,uid2);
+          if(tagsToRead.size()==0){
+            readerEventIndex.addSize(entries);
+            readerEventIndex.addPosition(position);
+          } else {
+            bool accept = false;
+            for(int jr = 0; jr < tagsToRead.size(); jr++){
+              if(tagsToRead[jr]==uid1) accept = true;
+            }
+            if(accept==true){
+              readerEventIndex.addSize(entries);
+              readerEventIndex.addPosition(position);
+            }
+          }
     }
     readerEventIndex.rewind();
+    //printf("**** reader:: header version   : %d \n",readerEventIndex.getMaxEvents());
+    printf("**** reader::  # of events     : %d \n",readerEventIndex.getMaxEvents());
 }
 
 bool  reader::hasNext(){ return readerEventIndex.canAdvance();}
@@ -169,7 +184,7 @@ void  reader::readDictionary(hipo::dictionary &dict){
   for(int i = 0; i < nevents; i++){
     dictRecord.readHipoEvent(event,i);
     event.getStructure(schemaStructure,120,2);
-    // printf("schema : %s\n",schemaStructure.getStringAt(0).c_str());
+    printf("schema : %s\n",schemaStructure.getStringAt(0).c_str());
     dict.parse(schemaStructure.getStringAt(0).c_str());
   }
 }
@@ -188,12 +203,14 @@ bool  reader::next(){
     }
     return true;
 }
+  //dglazier
   bool  reader::loadRecord(int irec){
-    
+
     long position = readerEventIndex.getPosition(irec);
     inputRecord.readRecord(inputStream,position,0);
     return readerEventIndex.loadRecord(irec);
   }
+  //dglazier
   bool  reader::nextInRecord(){
     if(readerEventIndex.canAdvanceInRecord()==false) return false;
     readerEventIndex.advance();
@@ -201,14 +218,14 @@ bool  reader::next(){
   }
 
 void reader::printWarning(){
-    // #ifndef __LZ4__
-    //   std::cout << "******************************************************" << std::endl;
-    //   std::cout << "* WARNING:                                           *" << std::endl;
-    //   std::cout << "*   This library war compiled without LZ4 support.   *" << std::endl;
-    //   std::cout << "*   Reading and writing compressed buffers will not  *" << std::endl;
-    //   std::cout << "*   work. However un-compressed file I/O will work.  *" << std::endl;
-    //   std::cout << "******************************************************" << std::endl;
-    // #endif
+    #ifndef __LZ4__
+      std::cout << "******************************************************" << std::endl;
+      std::cout << "* WARNING:                                           *" << std::endl;
+      std::cout << "*   This library war compiled without LZ4 support.   *" << std::endl;
+      std::cout << "*   Reading and writing compressed buffers will not  *" << std::endl;
+      std::cout << "*   work. However un-compressed file I/O will work.  *" << std::endl;
+      std::cout << "******************************************************" << std::endl;
+    #endif
   }
 }
 
@@ -237,7 +254,7 @@ namespace hipo {
       return true;
     }
 
-    if((int)recordEvents.size() < currentRecord + 2 + 1){
+    if(recordEvents.size() < currentRecord + 2 + 1){
       printf("advance(): Warning, reached the limit of events.\n");
       return false;
     }
@@ -251,7 +268,7 @@ namespace hipo {
     if(recordEvents.size()==0) return 0;
     return recordEvents[recordEvents.size()-1];
   }
-  
+  //dglazier
   bool readerIndex::loadRecord(int irec){
     if(irec==0){
       currentEvent=-1;
@@ -261,15 +278,15 @@ namespace hipo {
     }
     if(irec+1>(int)recordEvents.size())
       return false;
-    
+
     currentEvent = recordEvents[irec]-1;
     currentRecord=irec;
     currentRecordEvent = -1;
     return true;
   }
+  //dglazier
   bool readerIndex::canAdvanceInRecord(){
     return (currentEvent<recordEvents[currentRecord+1]-1);
   }
 
-  
 }

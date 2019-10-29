@@ -3,8 +3,10 @@ SOURCES := $(wildcard *.cpp)
 OBJECTS := $(SOURCES:.cpp=.o)
 
 LIBDIR  = ../lib
+BINDIR  = ../bin
 
-LZ4INCLUDES := -I/group/clas12/packages/lz4/lib/
+#LZ4INCLUDES := -I../Lz4/lib/
+LZ4INCLUDES := -I../lz4/lib/
 
 CXXFLAGS = -std=c++11
 

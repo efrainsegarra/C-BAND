@@ -7,9 +7,9 @@
 #include "record.h"
 //#include "hipoexceptions.h"
 
-//#ifdef __LZ4__
+#ifdef __LZ4__
 #include <lz4.h>
-//#endif
+#endif
 
 namespace hipo {
 
@@ -406,18 +406,18 @@ namespace hipo {
      * returns the number of bytes that were decompressed by LZ4
      */
     int  record::getUncompressed(const char *data,  char *dest, int dataLength, int dataLengthUncompressed){
-      // #ifdef __LZ4__
+      #ifdef __LZ4__
         int result = LZ4_decompress_safe(data,dest,dataLength,dataLengthUncompressed);
         //int result = LZ4_decompress_fast(data,dest,dataLengthUncompressed);
         return result;
-        // #endif
+        #endif
 
-        // #ifndef __LZ4__
-        //   printf("\n   >>>>> LZ4 compression is not supported.");
-        //   printf("\n   >>>>> check if libz4 is installed on your system.");
-        //   printf("\n   >>>>> recompile the library with liblz4 installed.\n");
-        //   return 0;
-        // #endif
+        #ifndef __LZ4__
+          printf("\n   >>>>> LZ4 compression is not supported.");
+          printf("\n   >>>>> check if libz4 is installed on your system.");
+          printf("\n   >>>>> recompile the library with liblz4 installed.\n");
+          return NULL;
+        #endif
 
     }
     /**
@@ -427,7 +427,7 @@ namespace hipo {
     char *record::getUncompressed(const char *data, int dataLength,
                                   int dataLengthUncompressed){
 
-      // #ifdef __LZ4__
+      #ifdef __LZ4__
         char *output = (char *) malloc(dataLengthUncompressed);
         int   result = LZ4_decompress_safe(data,output,dataLength,dataLengthUncompressed);
         //int   result = LZ4_decompress_fast(data,output,dataLengthUncompressed);
@@ -436,14 +436,14 @@ namespace hipo {
         //destUnCompressed[2],destUnCompressed[3]);
         //LZ4_decompress_fast(buffer,destUnCompressed,decompressedLength);
         //LZ4_uncompress(buffer,destUnCompressed,decompressedLength);
-        // #endif
+        #endif
 
-        // #ifndef __LZ4__
-        //   printf("\n   >>>>> LZ4 compression is not supported.");
-        //   printf("\n   >>>>> check if libz4 is installed on your system.");
-        //   printf("\n   >>>>> recompile the library with liblz4 installed.\n");
-        //   return NULL;
-        // #endif
+        #ifndef __LZ4__
+          printf("\n   >>>>> LZ4 compression is not supported.");
+          printf("\n   >>>>> check if libz4 is installed on your system.");
+          printf("\n   >>>>> recompile the library with liblz4 installed.\n");
+          return NULL;
+        #endif
 
     }
 

@@ -192,6 +192,7 @@ namespace hipo {
 
   void  benchmark::resume(){
     first = clock.now();
+    //auto start = clock.now();
     counter++;
   }
 
@@ -206,6 +207,10 @@ namespace hipo {
 
   long  benchmark::getTime(){
     return running_time;
+  }
+
+  double  benchmark::getTimeSec(){
+    return running_time*1e-9;
   }
 
   int   benchmark::getCounter(){ return counter;}
