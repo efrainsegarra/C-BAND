@@ -10,7 +10,7 @@ find_package(LZ4 REQUIRED)
 #set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}")
 
 # set globals for use of all packages
-file( GLOB HEADERS ${CMAKE_SOURCE_DIR}/*.h )
+#file( GLOB HEADERS ${CMAKE_SOURCE_DIR}/*.h )
 
 # Add directories
 add_subdirectory(Hipo4)
